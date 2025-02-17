@@ -69,9 +69,6 @@ func main() {
 	router.Handle("GET /api/tasks", mw.RequireAuthorization()(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			authCtx := mw.Context(r.Context())
-			slog.Info("user accessed task list", "id", authCtx.Claims["hoang-cao-long1"])
-			slog.Info("user accessed task list", "id", authCtx.Claims["name1"])
-			slog.Info("user accessed task list", "id", authCtx.GetToken())
 
 			list := tasks
 			if authCtx.IsGrantedRole("admin") {

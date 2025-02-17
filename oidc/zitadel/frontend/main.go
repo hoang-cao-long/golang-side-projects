@@ -15,6 +15,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/zitadel-go/v3/pkg/authentication"
 	openid "github.com/zitadel/zitadel-go/v3/pkg/authentication/oidc"
 	"github.com/zitadel/zitadel-go/v3/pkg/zitadel"
@@ -24,7 +25,7 @@ var (
 	// flags to be provided for running the example server
 	domain      = flag.String("domain", "zitadel.dev.honganh.vn", "your ZITADEL instance domain (in the form: https://<instance>.zitadel.cloud or https://<yourdomain>)")
 	key         = flag.String("key", "14d67567f09d56fd2d084cbcad6b4102", "encryption key")
-	clientID    = flag.String("clientID", "303595230391763018", "clientID provided by ZITADEL")
+	clientID    = flag.String("clientID", "307477784140251209", "clientID provided by ZITADEL")
 	redirectURI = flag.String("redirectURI", "http://localhost:8090/auth/callback", "redirectURI registered at ZITADEL")
 	port        = flag.String("port", "8090", "port to run the server on (default is 8089)")
 
@@ -48,7 +49,12 @@ func main() {
 
 	// init authentication
 	authN, err := authentication.New(ctx, zitadel.New(*domain), *key,
-		openid.DefaultAuthentication(*clientID, *redirectURI, *key),
+		openid.DefaultAuthentication(
+			*clientID,
+			*redirectURI,
+			*key,
+			oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail, oidc.ScopeOfflineAccess,
+		),
 	)
 	if err != nil {
 		slog.Error("zitadel sdk could not initialize", "error", err)
@@ -67,11 +73,6 @@ func main() {
 		if err != nil {
 			slog.Error("error writing home page response", "error", err)
 		}
-
-		// if authentication.IsAuthenticated(req.Context()) {
-		// 	userInfo := mw.Context(req.Context())
-		// 	fmt.Println("access token: ", userInfo.Tokens.AccessToken)
-		// }
 	})))
 
 	router.Handle("/tasks", mw.CheckAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -95,6 +96,8 @@ func main() {
 		fmt.Println(userInfo.UserInfo.Claims["user_id"])
 		fmt.Println(userInfo.Tokens.IDTokenClaims.Claims["user_id"])
 		fmt.Println(userInfo.Tokens.IDToken)
+		fmt.Println(userInfo.Tokens.RefreshToken)
+		fmt.Println(userInfo.GetTokens().RefreshToken)
 
 		// request
 		client := &http.Client{}
@@ -155,12 +158,6 @@ func main() {
 
 	router.Handle("/profile", mw.RequireAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		userInfo := mw.Context(req.Context())
-
-		fmt.Println(userInfo.Tokens.TokenType)
-
-		slog.Info("user info claims:", userInfo.UserInfo.Claims["hoang-cao-long1"])
-		slog.Info("user info claims:", userInfo.UserInfo.Claims["name1"])
-
 		userInfoData, err := json.MarshalIndent(userInfo.UserInfo, "", "	")
 		if err != nil {
 			slog.Error("error marshalling profile response", "error", err)
