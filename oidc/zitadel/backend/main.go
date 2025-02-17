@@ -14,7 +14,6 @@ import (
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization"
 	"github.com/zitadel/zitadel-go/v3/pkg/authorization/oauth"
 	"github.com/zitadel/zitadel-go/v3/pkg/client"
-	objectV2 "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/object/v2"
 	userV2 "github.com/zitadel/zitadel-go/v3/pkg/client/zitadel/user/v2"
 	"github.com/zitadel/zitadel-go/v3/pkg/http/middleware"
 	"github.com/zitadel/zitadel-go/v3/pkg/zitadel"
@@ -23,11 +22,11 @@ import (
 
 var (
 	// flags to be provided for running the example server
-	domain = flag.String("domain", "localhost", "your ZITADEL instance domain (in the form: <instance>.zitadel.cloud or <yourdomain>)")
-	key    = flag.String("key", "292578997605236738.json", "path to your key.json")
+	domain = flag.String("domain", "zitadel.dev.honganh.vn", "your ZITADEL instance domain (in the form: <instance>.zitadel.cloud or <yourdomain>)")
+	key    = flag.String("key", "backend.json", "path to your key.json")
 	port   = flag.String("port", "8091", "port to run the server on (default is 8089)")
 
-	keyUserService = flag.String("keyUserService", "295610152923430914.json", "path to your key.json")
+	keyUserService = flag.String("keyUserService", "client.json", "path to your key.json")
 
 	// tasks are used to store an in-memory list used in the protected endpoint
 	tasks  []string
@@ -70,7 +69,9 @@ func main() {
 	router.Handle("GET /api/tasks", mw.RequireAuthorization()(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			authCtx := mw.Context(r.Context())
-			slog.Info("user accessed task list", "id", authCtx.UserID(), "username", authCtx.Username)
+			slog.Info("user accessed task list", "id", authCtx.Claims["hoang-cao-long1"])
+			slog.Info("user accessed task list", "id", authCtx.Claims["name1"])
+			slog.Info("user accessed task list", "id", authCtx.GetToken())
 
 			list := tasks
 			if authCtx.IsGrantedRole("admin") {
@@ -113,9 +114,13 @@ func main() {
 
 			// create user
 			userRespCreated, err := api.UserServiceV2().AddHumanUser(ctx, &userV2.AddHumanUserRequest{
-				UserId:       &userID,
-				Username:     &userName,
-				Organization: &objectV2.Organization{},
+				UserId:   &userID,
+				Username: &userName,
+				// Organization: &objectV2.Organization{
+				// 	Org: &objectV2.Organization_OrgDomain{
+				// 		OrgDomain: "zitadel.localhost",
+				// 	},
+				// },
 				Profile: &userV2.SetHumanProfile{
 					GivenName:         "testGivenName1",
 					FamilyName:        "testFamilyName1",
@@ -128,30 +133,11 @@ func main() {
 					Email:        "hclong2k@gmail.com",
 					Verification: nil,
 				},
-				// PasswordType: &userV2.AddHumanUserRequest_Password{
-				// 	Password: &userV2.Password{
-				// 		Password:       "Zitadel@123",
-				// 		ChangeRequired: true,
-				// 	},
-				// },
 			})
 			if err != nil {
 				slog.Error("Failed to create Zitadel client: %v", err)
 			}
 			slog.Info("User created successfully: %v", userRespCreated)
-
-			// set password
-			// _, err = api.UserServiceV2().SetPassword(ctx, &userV2.SetPasswordRequest{
-			// 	UserId: userResp.UserId,
-			// 	NewPassword: &userV2.Password{
-			// 		Password:       "Zitadel@123",
-			// 		ChangeRequired: false,
-			// 	},
-			// 	Verification: nil,
-			// })
-			// if err != nil {
-			// 	slog.Error("Failed to create Zitadel client: %v", err)
-			// }
 		})))
 
 	router.Handle("POST /api/user/update", mw.RequireAuthorization()(http.HandlerFunc(
@@ -174,24 +160,42 @@ func main() {
 					Email:        "hclong2k@gmail.com",
 					Verification: nil,
 				},
-				// Phone: &userV2.SetHumanPhone{
-				// 	Phone:        "",
-				// 	Verification: nil,
-				// },
-				Password: &userV2.SetPassword{
-					PasswordType: &userV2.SetPassword_Password{
-						Password: &userV2.Password{
-							Password:       "Zitadel@321",
-							ChangeRequired: false,
-						},
-					},
-					Verification: nil,
-				},
 			})
 			if err != nil {
 				slog.Error("Failed to update Zitadel client: %v", err)
 			}
+			// api.UserServiceV2().LockUser()
 			slog.Info("User updated successfully: %v", userRespUpdated)
+		})))
+
+	router.Handle("POST /api/user/deactivate", mw.RequireAuthorization()(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			resp, err := api.UserServiceV2().DeactivateUser(ctx, &userV2.DeactivateUserRequest{
+				UserId: userID,
+			})
+			if err != nil {
+				slog.Error("Failed to deactivate Zitadel client: %v", err)
+			}
+			slog.Info("User deactivate successfully: %v", resp)
+		})))
+
+	router.Handle("POST /api/user/change-password", mw.RequireAuthorization()(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			resp, err := api.UserServiceV2().SetPassword(ctx, &userV2.SetPasswordRequest{
+				UserId: userID,
+				NewPassword: &userV2.Password{
+					Password:       "",
+					ChangeRequired: false,
+				},
+				Verification: &userV2.SetPasswordRequest_CurrentPassword{
+					CurrentPassword: "Zitadel@123",
+				},
+			})
+			if err != nil {
+				slog.Error("Failed to change password Zitadel client: %v", err)
+			}
+
+			slog.Info("Change password successfully: %v", resp)
 		})))
 
 	lis := fmt.Sprintf(":%s", *port)

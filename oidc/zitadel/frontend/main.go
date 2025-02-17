@@ -22,9 +22,9 @@ import (
 
 var (
 	// flags to be provided for running the example server
-	domain      = flag.String("domain", "localhost", "your ZITADEL instance domain (in the form: https://<instance>.zitadel.cloud or https://<yourdomain>)")
+	domain      = flag.String("domain", "zitadel.dev.honganh.vn", "your ZITADEL instance domain (in the form: https://<instance>.zitadel.cloud or https://<yourdomain>)")
 	key         = flag.String("key", "14d67567f09d56fd2d084cbcad6b4102", "encryption key")
-	clientID    = flag.String("clientID", "292578941116416002", "clientID provided by ZITADEL")
+	clientID    = flag.String("clientID", "303595230391763018", "clientID provided by ZITADEL")
 	redirectURI = flag.String("redirectURI", "http://localhost:8090/auth/callback", "redirectURI registered at ZITADEL")
 	port        = flag.String("port", "8090", "port to run the server on (default is 8089)")
 
@@ -92,6 +92,9 @@ func main() {
 		// add header
 		reqBE.Header.Add("Content-Type", "application/json")
 		reqBE.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userInfo.Tokens.AccessToken))
+		fmt.Println(userInfo.UserInfo.Claims["user_id"])
+		fmt.Println(userInfo.Tokens.IDTokenClaims.Claims["user_id"])
+		fmt.Println(userInfo.Tokens.IDToken)
 
 		// request
 		client := &http.Client{}
@@ -152,6 +155,12 @@ func main() {
 
 	router.Handle("/profile", mw.RequireAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		userInfo := mw.Context(req.Context())
+
+		fmt.Println(userInfo.Tokens.TokenType)
+
+		slog.Info("user info claims:", userInfo.UserInfo.Claims["hoang-cao-long1"])
+		slog.Info("user info claims:", userInfo.UserInfo.Claims["name1"])
+
 		userInfoData, err := json.MarshalIndent(userInfo.UserInfo, "", "	")
 		if err != nil {
 			slog.Error("error marshalling profile response", "error", err)
@@ -222,6 +231,66 @@ func main() {
 		defer resp.Body.Close()
 
 		fmt.Fprint(w, "Update user")
+	})))
+
+	router.Handle("/user/change-password", mw.RequireAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		userInfo := mw.Context(req.Context())
+
+		fullURL := fmt.Sprintf("%s/user/change-password", baseURLBe)
+
+		// add body
+		formData := url.Values{}
+
+		reqBE, err := http.NewRequest("POST", fullURL, strings.NewReader(formData.Encode()))
+		if err != nil {
+			fmt.Println("Error creating request:", err)
+			return
+		}
+
+		// add header
+		reqBE.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		reqBE.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userInfo.Tokens.AccessToken))
+
+		// send request
+		client := &http.Client{}
+		resp, err := client.Do(reqBE)
+		if err != nil {
+			fmt.Println("Error sending request:", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		fmt.Fprint(w, "Change password user")
+	})))
+
+	router.Handle("/user/deactivate", mw.RequireAuthentication()(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		userInfo := mw.Context(req.Context())
+
+		fullURL := fmt.Sprintf("%s/user/deactivate", baseURLBe)
+
+		// add body
+		formData := url.Values{}
+
+		reqBE, err := http.NewRequest("POST", fullURL, strings.NewReader(formData.Encode()))
+		if err != nil {
+			fmt.Println("Error creating request:", err)
+			return
+		}
+
+		// add header
+		reqBE.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		reqBE.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userInfo.Tokens.AccessToken))
+
+		// send request
+		client := &http.Client{}
+		resp, err := client.Do(reqBE)
+		if err != nil {
+			fmt.Println("Error sending request:", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		fmt.Fprint(w, "Deactivate user")
 	})))
 
 	lis := fmt.Sprintf(":%s", *port)
